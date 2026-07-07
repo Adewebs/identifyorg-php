@@ -1,0 +1,20 @@
+{
+    "name": "identifyorg/sdk-php",
+    "description": "IdentifyOrg server-side SDK for PHP — identity verification, prepaid billing, and realtime call/chat token issuance.",
+    "type": "library",
+    "license": "MIT",
+    "keywords": ["identifyorg", "kyc", "bvn", "nin", "identity-verification", "livekit"],
+    "require": {
+        "php": ">=8.0",
+        "ext-curl": "*",
+        "ext-json": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "IdentifyOrg\\": "src/"
+        }
+    },
+    "support": {
+        "source": "https://github.com/Adewebs/identifyorg-php"
+    }
+}
