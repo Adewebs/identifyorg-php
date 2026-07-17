@@ -33,9 +33,17 @@ class IdentifyOrgClient
 
     // --- verification ---
 
-    public function verifyBvn(string $bvn, ?string $firstName = null, ?string $lastName = null, ?string $idempotencyKey = null): array
+    /**
+     * $phoneNumber (e.g. "08012345678") is required on live keys — the
+     * upstream provider rejects BVN match requests without it; test keys
+     * ignore it. $dateOfBirth is ISO format (YYYY-MM-DD).
+     */
+    public function verifyBvn(string $bvn, ?string $firstName = null, ?string $lastName = null, ?string $dateOfBirth = null, ?string $phoneNumber = null, ?string $idempotencyKey = null): array
     {
-        return $this->post('/v1/verify/bvn', ['bvn' => $bvn, 'first_name' => $firstName, 'last_name' => $lastName], $idempotencyKey);
+        return $this->post('/v1/verify/bvn', [
+            'bvn' => $bvn, 'first_name' => $firstName, 'last_name' => $lastName,
+            'date_of_birth' => $dateOfBirth, 'phone_number' => $phoneNumber,
+        ], $idempotencyKey);
     }
 
     public function verifyNin(string $nin, ?string $firstName = null, ?string $lastName = null, ?string $idempotencyKey = null): array
@@ -56,6 +64,26 @@ class IdentifyOrgClient
     public function verifyCac(string $rcNumber, ?string $firstName = null, ?string $lastName = null, ?string $idempotencyKey = null): array
     {
         return $this->post('/v1/verify/cac', ['rc_number' => $rcNumber, 'first_name' => $firstName, 'last_name' => $lastName], $idempotencyKey);
+    }
+
+    // --- file-upload verification: pass a filesystem path to each ---
+
+    /** OCR-verify an ID document photo (national ID, passport, voter's card, driver's licence). */
+    public function verifyDocument(string $filePath, ?string $idempotencyKey = null): array
+    {
+        return $this->postFiles('/v1/verify/document', ['file' => $filePath], $idempotencyKey);
+    }
+
+    /** Check whether a selfie photo is a live person (basic anti-spoofing). */
+    public function verifyLiveness(string $filePath, ?string $idempotencyKey = null): array
+    {
+        return $this->postFiles('/v1/verify/liveness', ['file' => $filePath], $idempotencyKey);
+    }
+
+    /** Compare a selfie against an ID photo — same person or not. */
+    public function verifyFaceMatch(string $selfiePath, string $idPhotoPath, ?string $idempotencyKey = null): array
+    {
+        return $this->postFiles('/v1/verify/face-match', ['selfie' => $selfiePath, 'id_photo' => $idPhotoPath], $idempotencyKey);
     }
 
     // --- realtime: calls, streaming, chat ---
@@ -225,6 +253,39 @@ class IdentifyOrgClient
         $params = array_filter($params, fn ($v) => $v !== null);
         $query = $params ? '?' . http_build_query($params) : '';
         return $this->request('GET', $path . $query);
+    }
+
+    /** @param array<string, string> $files field name => filesystem path */
+    private function postFiles(string $path, array $files, ?string $idempotencyKey = null): array
+    {
+        $fields = [];
+        foreach ($files as $field => $filePath) {
+            $fields[$field] = new \CURLFile($filePath);
+        }
+
+        // No Content-Type header here — curl sets the multipart boundary
+        // itself when CURLOPT_POSTFIELDS is an array (not a JSON string).
+        $ch = curl_init($this->baseUrl . $path);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_HTTPHEADER => $this->headers($idempotencyKey),
+            CURLOPT_POSTFIELDS => $fields,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT => 30,
+        ]);
+        $raw = curl_exec($ch);
+        if ($raw === false) {
+            $error = curl_error($ch);
+            throw new IdentifyOrgApiError(0, 'connection_error', $error);
+        }
+        $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+        $data = json_decode($raw, true) ?? [];
+        if ($status >= 300) {
+            $err = $data['error'] ?? [];
+            throw new IdentifyOrgApiError($status, $err['code'] ?? null, $err['message'] ?? "HTTP {$status}");
+        }
+        return $data;
     }
 
     private function request(string $method, string $path, ?array $body = null, ?string $idempotencyKey = null): array
