@@ -537,6 +537,136 @@ class IdentifyOrgClient
         return $this->post('/v1/business/test/simulate-card-payment', ['reference' => $reference]);
     }
 
+    // --- WhatsApp for platforms: a workspace (one number) for every client you serve ---
+    // A test key works on test workspaces: pretend linking, no real number, never billed.
+
+    /** One workspace per client business. $externalId is your own id for that client. */
+    public function createWhatsAppWorkspace(string $label, ?string $externalId = null, bool $aiEnabled = true, ?array $profile = null, ?array $brand = null, string $mode = 'ai'): array
+    {
+        return $this->post('/v1/wa/channels', ['label' => $label, 'external_id' => $externalId, 'ai_enabled' => $aiEnabled, 'profile' => $profile, 'brand' => $brand, 'mode' => $mode]);
+    }
+
+    public function whatsAppWorkspaces(?string $externalId = null): array
+    {
+        return $this->get('/v1/wa/channels', ['external_id' => $externalId]);
+    }
+
+    /** Live status, plus `qr` (text to draw as a QR code) while the workspace is waiting to be scanned. */
+    public function getWhatsAppWorkspace(string $id): array
+    {
+        return $this->get("/v1/wa/channels/{$id}");
+    }
+
+    /** label, ai_enabled, mode or brand. */
+    public function updateWhatsAppWorkspace(string $id, array $fields): array
+    {
+        return $this->patch("/v1/wa/channels/{$id}", $fields);
+    }
+
+    public function deleteWhatsAppWorkspace(string $id): void
+    {
+        $this->request('DELETE', "/v1/wa/channels/{$id}");
+    }
+
+    /** Start linking. Returns `connect_url`, the hosted page to send your client to. */
+    public function connectWhatsApp(string $id): array
+    {
+        return $this->post("/v1/wa/channels/{$id}/connect", []);
+    }
+
+    public function disconnectWhatsApp(string $id): array
+    {
+        return $this->post("/v1/wa/channels/{$id}/disconnect", []);
+    }
+
+    public function setWhatsAppProfile(string $id, array $profile): array
+    {
+        return $this->request('PUT', "/v1/wa/channels/{$id}/profile", $profile);
+    }
+
+    public function setWhatsAppRules(string $id, array $rules): array
+    {
+        return $this->request('PUT', "/v1/wa/channels/{$id}/rules", ['rules' => $rules]);
+    }
+
+    /** Where customer messages are sent, signed. Returns the signing secret. */
+    public function setWhatsAppWebsite(string $id, string $url, ?string $fallbackMessage = null): array
+    {
+        return $this->request('PUT', "/v1/wa/channels/{$id}/website", array_filter(['url' => $url, 'fallback_message' => $fallbackMessage], fn ($v) => $v !== null));
+    }
+
+    /** Replies only, to people who messaged this number. $session is "start" or "end". */
+    public function sendWhatsApp(string $id, string $to, ?string $text = null, ?array $media = null, ?string $session = null): array
+    {
+        return $this->post("/v1/wa/channels/{$id}/send", ['to' => $to, 'text' => $text, 'media' => $media, 'session' => $session]);
+    }
+
+    public function whatsAppConversations(string $id): array
+    {
+        return $this->get("/v1/wa/channels/{$id}/conversations");
+    }
+
+    public function replyToWhatsAppConversation(string $conversationId, string $body): array
+    {
+        return $this->post("/v1/wa/conversations/{$conversationId}/reply", ['body' => $body]);
+    }
+
+    /** Ask the assistant a question. Nothing is sent or billed. */
+    public function testWhatsAppAssistant(string $id, string $message, array $history = []): array
+    {
+        return $this->post("/v1/wa/channels/{$id}/test", ['message' => $message, 'history' => $history]);
+    }
+
+    /** Test workspaces only: pretend the QR code was scanned. */
+    public function testWhatsAppScan(string $id): array
+    {
+        return $this->post("/v1/wa/channels/{$id}/test/scan", []);
+    }
+
+    /** Test workspaces only: a pretend customer message through your rules, your website and the assistant. */
+    public function testWhatsAppInbound(string $id, string $text, string $fromPhone = '2348000000001', ?string $name = null): array
+    {
+        return $this->post("/v1/wa/channels/{$id}/test/inbound", ['text' => $text, 'from_phone' => $fromPhone, 'name' => $name]);
+    }
+
+    public function whatsAppPlans(): array
+    {
+        return $this->get('/v1/wa/plans');
+    }
+
+    public function whatsAppSubscription(): array
+    {
+        return $this->get('/v1/wa/subscription');
+    }
+
+    public function useWhatsAppPayPerReply(): array
+    {
+        return $this->post('/v1/wa/subscription', ['tier' => 'payg']);
+    }
+
+    public function whatsAppUsage(int $days = 30, ?string $workspaceId = null): array
+    {
+        return $this->get('/v1/wa/usage', ['days' => $days, 'channel_id' => $workspaceId]);
+    }
+
+    public function getWhatsAppBrand(): array
+    {
+        return $this->get('/v1/wa/brand');
+    }
+
+    /** Your default look for every connect page. Empty fields are cleared. */
+    public function setWhatsAppBrand(?string $name = null, ?string $logoUrl = null, ?string $color = null): array
+    {
+        return $this->request('PUT', '/v1/wa/brand', ['name' => $name ?? '', 'logo_url' => $logoUrl ?? '', 'color' => $color]);
+    }
+
+    /** PNG, JPEG, WebP or SVG up to 5 MB. Pass a workspace id for one workspace only. */
+    public function uploadWhatsAppLogo(string $filePath, ?string $workspaceId = null): array
+    {
+        $path = $workspaceId ? "/v1/wa/channels/{$workspaceId}/brand/logo" : '/v1/wa/brand/logo';
+        return $this->postFiles($path, ['file' => $filePath]);
+    }
+
     // --- address verification ---
 
     /** Start a check. Send the person `confirm_url` from the result so they can share their location. */

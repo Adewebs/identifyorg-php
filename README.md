@@ -104,3 +104,18 @@ $acct = $client->createVirtualAccount('Tunde Bello', 'tunde@example.com', 'order
 $charge = $client->createCardCharge(5000, 'tunde@example.com', 'Tunde Bello'); // send him the checkout link
 print_r($client->receivedPayments(null, 'success'));
 ```
+
+## WhatsApp for platforms
+
+```php
+$ws = $client->createWhatsAppWorkspace('Ada Stores', 'client_8841', true, ['business_name' => 'Ada Stores', 'about' => 'Phones and accessories in Yaba']);
+$client->setWhatsAppBrand('YourPlatform', null, '#0a7f3f');   // once, for every connect page
+$link = $client->connectWhatsApp($ws['id']);
+echo $link['connect_url'];                                    // send your client here
+
+// with a test key: rehearse with no real number and no billing
+$client->testWhatsAppScan($ws['id']);
+print_r($client->testWhatsAppInbound($ws['id'], 'How much is a charger?')['replies']);
+$client->useWhatsAppPayPerReply();
+print_r($client->whatsAppUsage(30));
+```
