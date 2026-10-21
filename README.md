@@ -119,3 +119,13 @@ print_r($client->testWhatsAppInbound($ws['id'], 'How much is a charger?')['repli
 $client->useWhatsAppPayPerReply();
 print_r($client->whatsAppUsage(30));
 ```
+
+## Hosted face verification
+
+```php
+$check = $client->createLiveness('customer-42', 'https://example.com/done');
+// send the person to $check['url'] (browser, WebView or in-app), then:
+$verdict = $client->getLiveness($check['id']); // $verdict['passed']
+```
+
+> Always confirm the verdict from your server. What the app receives is only a signal. Guide: https://github.com/Adewebs/identifyorg/blob/main/docs/face-verification-integration.md
