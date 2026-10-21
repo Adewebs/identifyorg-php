@@ -31,6 +31,22 @@ class IdentifyOrgClient
         $this->baseUrl = rtrim($baseUrl, '/');
     }
 
+    // --- hosted face check ---
+
+    /** Create a hosted face check; send the person to the returned 'url', then read the verdict with getLiveness(). */
+    public function createLiveness(?string $reference = null, ?string $returnUrl = null, ?string $referencePhotoB64 = null, int $expiresInMinutes = 30): array
+    {
+        return $this->post('/v1/liveness/hosted', [
+            'reference' => $reference, 'return_url' => $returnUrl,
+            'reference_photo' => $referencePhotoB64, 'expires_in_minutes' => $expiresInMinutes,
+        ]);
+    }
+
+    public function getLiveness(string $id): array
+    {
+        return $this->get('/v1/liveness/hosted/' . rawurlencode($id));
+    }
+
     // --- verification ---
 
     /**
